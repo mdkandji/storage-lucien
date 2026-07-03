@@ -186,24 +186,34 @@ setup_volume() {
 
 mount_volume() {
     echo "[mount] mounting ${GLUSTER_VOL} on /export/mail..."
-    # `mount -t glusterfs` réussit dès que le montage FUSE est enregistré
-    # côté noyau -- le client glusterfs négocie ensuite la connexion aux
-    # bricks de façon asynchrone en arrière-plan. Sous forte charge (ex. 4
-    # sites qui démarrent GlusterFS/Pacemaker/Corosync en même temps), cette
-    # négociation peut prendre plusieurs secondes. On monte UNE SEULE fois
-    # puis on patiente que le montage serve vraiment des données (stat
-    # réussi) avant de continuer -- répéter mount/umount à chaque tentative
-    # (comme un premier correctif l'a fait) interrompt la négociation en
-    # cours avant qu'elle n'aboutisse et fait échouer des montages qui
-    # auraient réussi en laissant simplement plus de temps.
-    mount -t glusterfs "localhost:/${GLUSTER_VOL}" /export/mail 2>/tmp/mount.err
+    # Deux échecs distincts à gérer ici, pas un seul :
+    #  1) `mount -t glusterfs` peut échouer tout de suite (retourne non-zéro)
+    #     si le glusterd LOCAL n'a même pas encore son socket prêt -- avec
+    #     `set -e` en tête de script, un mount non protégé plante tout le
+    #     conteneur immédiatement (observé en réintégrant ce correctif dans
+    #     integration/ : crash-loop sans même le message "[mount] FAILED",
+    #     preuve que le `exit 1` explicite plus bas n'était jamais atteint).
+    #  2) Une fois monté, le client glusterfs négocie la connexion aux
+    #     bricks de façon asynchrone et peut ne pas encore servir de données
+    #     ("no subvolumes up") -- démonter/remonter à ce stade (version
+    #     précédente de ce correctif) interrompt cette négociation avant
+    #     qu'elle n'aboutisse et fait régresser des montages qui auraient
+    #     fini par réussir.
+    # Donc : retenter le mount UNIQUEMENT s'il n'est pas déjà monté, et sinon
+    # seulement attendre (jamais redémonter) qu'il devienne utilisable.
     for i in $(seq 1 30); do
-        mountpoint -q /export/mail && timeout 3 stat /export/mail > /dev/null 2>&1 && break
+        if ! mountpoint -q /export/mail; then
+            mount -t glusterfs "localhost:/${GLUSTER_VOL}" /export/mail 2>/tmp/mount.err || true
+        fi
+        if mountpoint -q /export/mail && timeout 3 stat /export/mail > /dev/null 2>&1; then
+            echo "[mount] OK"
+            return 0
+        fi
         sleep 2
     done
-    mountpoint -q /export/mail && timeout 3 stat /export/mail > /dev/null 2>&1 \
-        || { echo "[mount] FAILED"; cat /tmp/mount.err; exit 1; }
-    echo "[mount] OK"
+    echo "[mount] FAILED"
+    cat /tmp/mount.err 2>/dev/null
+    exit 1
 }
 
 start_ganesha() {

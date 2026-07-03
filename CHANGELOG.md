@@ -70,6 +70,19 @@
   seule fois puis patiente (sans redémonter) que le montage devienne
   utilisable — confirmé stable sur 2 runs propres consécutifs (13/13
   à chaque fois) après ce second correctif.
+  **Troisième correctif** : ce montage unique en tête de fonction n'était
+  pas protégé contre `set -e` (actif en tête de ce script) — si le
+  `glusterd` local n'a même pas encore son socket prêt au tout premier
+  essai (constaté en réintégrant ce correctif dans `integration/`, sous la
+  charge de 4 sites démarrant simultanément), `mount` retourne aussitôt un
+  code non-zéro et `set -e` tue le conteneur sur-le-champ, avant même
+  d'atteindre la boucle d'attente — crash-loop silencieux, sans même le
+  message `[mount] FAILED`. `mount_volume()` retente maintenant le `mount`
+  lui-même (protégé par `|| true`) à chaque itération tant qu'il n'est pas
+  déjà monté, en plus d'attendre qu'il devienne utilisable une fois monté.
+  Confirmé stable : les 8 nœuds storage de `integration/` démarrent
+  désormais avec 0 redémarrage, et la suite `integration/tests/` passe
+  intégralement (18 OK / 0 FAIL / 1 SKIP attendu).
 
 ### Découvert (limitation d'environnement, pas un bug de ce repo)
 - Montage NFSv4 **cross-conteneur** bloqué sur l'hôte de développement
