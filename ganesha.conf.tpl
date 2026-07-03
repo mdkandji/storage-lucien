@@ -1,7 +1,9 @@
-# NFS-Ganesha export of the local GlusterFS FUSE mount (/export/mail).
-# FSAL_VFS on top of the FUSE mount (not FSAL_GLUSTER/libgfapi) on purpose:
-# simpler, no extra client library coupling, and the consistency guarantee
-# already comes from GlusterFS's own replica-2 volume underneath.
+# NFS-Ganesha export of the GlusterFS volume, via FSAL_GLUSTER (libgfapi) --
+# direct access to the volume, not a re-export of the local FUSE mount.
+# (FSAL_VFS would have been the other option, but the Debian nfs-ganesha
+# package only ships libfsalgluster.so, not a VFS FSAL module -- confirmed
+# at runtime, "Name = VFS" fails config validation with no such library.
+# FSAL_GLUSTER is the natural pairing with GlusterFS anyway.)
 NFS_CORE_PARAM {
     Enable_NLM = false;
     Enable_RQUOTA = false;
@@ -17,7 +19,7 @@ NFSv4 {
 
 EXPORT {
     Export_Id = 1;
-    Path = /export/mail;
+    Path = "/";
     Pseudo = /mail;
     Access_Type = RW;
     Squash = No_root_squash;
@@ -26,7 +28,9 @@ EXPORT {
     Transports = TCP;
 
     FSAL {
-        Name = VFS;
+        Name = GLUSTER;
+        Hostname = "localhost";
+        Volume = "${GLUSTER_VOL}";
     }
 }
 

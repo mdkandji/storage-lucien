@@ -196,8 +196,9 @@ mount_volume() {
 
 start_ganesha() {
     mkdir -p /var/run/ganesha
-    cp /etc/ganesha/ganesha.conf.tpl /etc/ganesha/ganesha.conf
-    echo "[ganesha] starting NFS-Ganesha..."
+    GLUSTER_VOL="$GLUSTER_VOL" envsubst '${GLUSTER_VOL}' \
+        < /etc/ganesha/ganesha.conf.tpl > /etc/ganesha/ganesha.conf
+    echo "[ganesha] starting NFS-Ganesha (FSAL_GLUSTER, volume=${GLUSTER_VOL})..."
     /usr/bin/ganesha.nfsd -F -L /var/log/ganesha.log &
     GANESHA_PID=$!
 }

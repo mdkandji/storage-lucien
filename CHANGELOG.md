@@ -8,8 +8,9 @@
   absents partout ailleurs dans le code existant).
 - GlusterFS replica-2 intra-DC (2 nœuds, réplication synchrone) avec
   découverte du pair local via etcd (`/storage-nodes/<site>/`).
-- Export NFSv4 via NFS-Ganesha (FSAL_VFS sur le point de montage FUSE local),
-  actif en permanence sur les 2 nœuds.
+- Export NFSv4 via NFS-Ganesha (FSAL_GLUSTER/libgfapi, accès natif au volume
+  — voir "Corrigé" plus bas pour l'historique VFS→GLUSTER), actif en
+  permanence sur les 2 nœuds.
 - Cluster Pacemaker/Corosync (2 nœuds, transport `udpu`) pilotant une VIP
   flottante unique (`ocf:heartbeat:IPaddr2`) — bascule automatique en cas de
   panne du nœud actif.
@@ -45,3 +46,19 @@
   chaque volume "secondaire" en lecture seule — cassant les écritures
   locales sur les deux DC. Contourné explicitement (`ensure_local_writable`,
   voir README section dédiée).
+- `FSAL { Name = VFS }` échouait la validation de config NFS-Ganesha
+  (`unknown property`) : le paquet `nfs-ganesha` de Debian bookworm ne
+  fournit **pas** de bibliothèque FSAL VFS (seule `nfs-ganesha-gluster`
+  existe séparément). Basculé sur `FSAL_GLUSTER` (accès natif via libgfapi
+  au volume, sans repasser par le montage FUSE local) — trouvé et corrigé
+  en construisant les tests d'intégration de `Mail/`.
+
+### Découvert (limitation d'environnement, pas un bug de ce repo)
+- Montage NFSv4 **cross-conteneur** bloqué sur l'hôte de développement
+  utilisé pour ce projet (`access denied by server`), alors que le montage
+  local (même conteneur) réussit systématiquement — reproduit à l'identique
+  avec NFS-Ganesha et avec le serveur NFS du noyau Linux, sur plusieurs
+  sous-réseaux Docker, connectivité réseau intégralement vérifiée. Very
+  probablement une interaction conntrack/netfilter spécifique à cet hôte.
+  Documentation complète de l'investigation dans le README (section
+  Limitations connues) et dans `Mail/CHANGELOG.md`.

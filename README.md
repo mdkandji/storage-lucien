@@ -69,6 +69,32 @@ ne traite pas ce cas).
   (`/georep-keys/<site>/<hostname>`) ; tous les nœuds font confiance à toutes
   les clés publiées. Acceptable dans un réseau Docker fermé de simulation,
   **pas un modèle de confiance suffisant pour un vrai multi-site exposé**.
+- **Montage NFSv4 cross-conteneur bloqué sur certains hôtes Docker** (constaté
+  sur l'environnement de développement utilisé pour ce projet) : l'export NFS
+  se charge et fonctionne correctement (confirmé en local, `mount 127.0.0.1:/`
+  et `mount <IP propre>:/` réussissent), mais un montage depuis un **autre**
+  conteneur échoue systématiquement avec `access denied by server` — reproduit
+  à l'identique avec NFS-Ganesha (FSAL_GLUSTER) **et** avec le serveur NFS du
+  noyau Linux (nfsd/mountd), sur plusieurs sous-réseaux Docker jamais utilisés
+  auparavant, avec permissions d'export totalement ouvertes (`*`, IP cliente
+  explicite, `no_root_squash`, `insecure`), après vérification exhaustive de
+  la connectivité réseau (ping, connexion TCP brute, capture de session
+  authentifiée) — donc **pas** un problème de configuration applicative de
+  ce repo, mais une caractéristique du noyau/de la pile réseau Docker de cet
+  hôte précis (probablement une interaction conntrack/netfilter avec le
+  protocole RPC, hors de portée d'investigation sans accès root à l'hôte, et
+  hors de portée de correction sans modifier l'hôte — explicitement exclu du
+  périmètre de ce projet). Le code de montage (`entrypoint.sh` de ce repo et
+  de `Mail/dovecot/`) suit les pratiques standard NFSv4 et devrait fonctionner
+  normalement sur un hôte Docker sans cette particularité. Documenté ici pour
+  transparence plutôt que masqué ; voir `Mail/CHANGELOG.md` pour le détail de
+  l'investigation menée.
+  ⚠️ Effet de bord découvert pendant l'investigation : monter le pseudo-
+  système de fichiers `nfsd` (`mount -t nfsd nfsd /proc/fs/nfsd`, nécessaire
+  uniquement pour tester le serveur NFS du **noyau** — non utilisé par
+  storage-lucien qui reste sur NFS-Ganesha userspace) peut laisser le
+  conteneur dans un état que `docker rm -f` ne peut plus nettoyer (namespace
+  noyau bloqué). N'affecte pas storage-lucien en usage normal.
 
 ## Variables d'environnement
 
