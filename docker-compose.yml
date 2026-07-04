@@ -1,0 +1,57 @@
+services:
+  gluster-paris:
+    image: gluster/gluster-centos:latest
+    container_name: gluster-paris
+    privileged: true
+    command: ["/usr/sbin/init"]
+    volumes:
+      - gluster-paris-data:/var/lib/glusterd
+      - gluster-paris-bricks:/data/glusterfs/brick1
+      - /lib/modules:/lib/modules:ro
+    networks:
+      securepulse-net:
+        ipv4_address: 192.168.220.11
+    restart: always
+
+  gluster-lille:
+    image: gluster/gluster-centos:latest
+    container_name: gluster-lille
+    privileged: true
+    command: ["/usr/sbin/init"]
+    volumes:
+      - gluster-lille-data:/var/lib/glusterd
+      - gluster-lille-bricks:/data/glusterfs/brick1
+      - /lib/modules:/lib/modules:ro
+    networks:
+      securepulse-net:
+        ipv4_address: 192.168.220.12
+    restart: always
+
+  gluster-lyon:
+    image: gluster/gluster-centos:latest
+    container_name: gluster-lyon
+    privileged: true
+    command: ["/usr/sbin/init"]
+    volumes:
+      - gluster-lyon-data:/var/lib/glusterd
+      - gluster-lyon-bricks:/data/glusterfs/brick1
+      - /lib/modules:/lib/modules:ro
+    networks:
+      securepulse-net:
+        ipv4_address: 192.168.220.13
+    restart: always
+
+networks:
+  securepulse-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.220.0/24
+
+volumes:
+  gluster-paris-data:
+  gluster-paris-bricks:
+  gluster-lille-data:
+  gluster-lille-bricks:
+  gluster-lyon-data:
+  gluster-lyon-bricks:

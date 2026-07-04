@@ -1,0 +1,43 @@
+name: SecurePulse Storage CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-cluster:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout du code
+      uses: actions/checkout@v4
+
+    - name: Installer et configurer Docker Compose
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker-compose
+
+    - name: Lancer l'architecture Multi-Site via Docker Compose
+      run: docker-compose up -d
+
+    - name: Rendre le script d'initialisation exécutable
+      run: chmod +x cluster-init.sh
+
+    - name: Initialiser le Cluster GlusterFS
+      run: ./cluster-init.sh
+
+    - name: Test de validation - Vérification de la réplication
+      run: |
+        echo "Vérification que le volume 'securepulse-vol' est bien démarré..."
+        STATUS=$(docker exec gluster-paris gluster volume info | grep "Status:" | awk '{print $2}')
+        if [ "$STATUS" != "Started" ]; then
+          echo "Erreur: Le volume GlusterFS n'est pas démarré !"
+          exit 1
+        fi
+        echo "Succès: L'architecture GlusterFS Anti-SPOF est opérationnelle !"
+
+    - name: Nettoyage
+      if: always()
+      run: docker-compose down -v
