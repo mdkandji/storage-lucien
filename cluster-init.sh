@@ -4,6 +4,12 @@ set -e
 echo "=== [SecurePulse] Attente du démarrage de GlusterFS ==="
 sleep 5
 
+echo "=== Démarrage manuel du démon GlusterFS ==="
+docker exec gluster-paris glusterd || true
+docker exec gluster-lille glusterd || true
+docker exec gluster-lyon glusterd || true
+sleep 2
+
 echo "=== Connexion des nœuds du cluster (Peer Probe) ==="
 docker exec gluster-paris gluster peer probe 192.168.220.12
 docker exec gluster-paris gluster peer probe 192.168.220.13

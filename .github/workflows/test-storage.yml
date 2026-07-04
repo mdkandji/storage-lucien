@@ -14,23 +14,20 @@ jobs:
     - name: Checkout du code
       uses: actions/checkout@v4
 
-    - name: Installer et configurer Docker Compose
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y docker-compose
-
     - name: Lancer l'architecture Multi-Site via Docker Compose
-      run: docker-compose up -d
+      run: docker compose up -d
 
-    - name: Rendre le script d'initialisation exécutable
-      run: chmod +x cluster-init.sh
+    - name: Attendre l'initialisation des conteneurs
+      run: sleep 10
 
     - name: Initialiser le Cluster GlusterFS
-      run: ./cluster-init.sh
+      run: bash ./cluster-init.sh
 
-    - name: Test de validation - Vérification de la réplication
+    - name: Test de validation - Vérification du statut Online
       run: |
-        echo "Vérification que le volume 'securepulse-vol' est bien démarré..."
+        echo "Vérification que les briques sont bien en ligne..."
+        docker exec gluster-paris gluster volume status securepulse-vol
+        
         STATUS=$(docker exec gluster-paris gluster volume info | grep "Status:" | awk '{print $2}')
         if [ "$STATUS" != "Started" ]; then
           echo "Erreur: Le volume GlusterFS n'est pas démarré !"
@@ -40,4 +37,4 @@ jobs:
 
     - name: Nettoyage
       if: always()
-      run: docker-compose down -v
+      run: docker compose down -v
